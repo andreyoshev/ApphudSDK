@@ -8,7 +8,6 @@
 
 import Foundation
 import StoreKit
-import AdSupport
 
 typealias ApphudVoidCallback = (() -> Void)
 typealias ApphudErrorCallback = ((Error?) -> Void)
@@ -88,21 +87,7 @@ internal func apphudCurrentDeviceParameters() -> [String: String] {
         params["idfv"] = idfv
     }
 
-    // let idfa = ApphudInternal.shared.advertisingIdentifier
-    if !ApphudUtils.shared.optOutOfIDFACollection, let idfa = apphudIdentifierForAdvertising() {
-        params["idfa"] = idfa
-    }
-
     return params
-}
-
-internal func apphudIdentifierForAdvertising() -> String? {
-    let idfa = ASIdentifierManager.shared().advertisingIdentifier.uuidString
-    if idfa == "00000000-0000-0000-0000-000000000000" {
-        return nil
-    } else {
-        return idfa
-    }
 }
 
 extension UIDevice {
