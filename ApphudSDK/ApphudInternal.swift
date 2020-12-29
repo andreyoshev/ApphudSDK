@@ -217,9 +217,10 @@ final class ApphudInternal: NSObject {
             } else {
                 self.scheduleUserRegistering()
             }
-            // try to continue anyway, because maybe already has cached data, try to fetch storekit products
-            self.continueToFetchProducts()
         }
+        
+        // try to continue anyway, because maybe already has cached data, try to fetch storekit products
+        self.continueToFetchProducts()
     }
 
     private func scheduleUserRegistering() {
