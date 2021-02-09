@@ -20,6 +20,26 @@ internal func apphudVisibleViewController() -> UIViewController? {
     return currentVC
 }
 
+extension String {
+    /// Helper method to parse date string into Date object
+    internal var apphudIsoDate: Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withFractionalSeconds,
+                                   .withInternetDateTime,
+                                   .withColonSeparatorInTimeZone,
+                                   .withColonSeparatorInTime]
+        let date = formatter.date(from: self)
+        return date
+    }
+    
+    internal var appleReceiptDate: Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss VV"
+        let date = formatter.date(from: self)
+        return date
+    }
+}
+
 internal func apphudIsSandbox() -> Bool {
     if apphudIsSimulator() {
         return true
@@ -42,7 +62,6 @@ private func apphudIsSimulator() -> Bool {
 
 internal func apphudDidMigrate() {
     UserDefaults.standard.set(true, forKey: "ApphudSubscriptionsMigrated")
-    UserDefaults.standard.synchronize()
 }
 
 internal func apphudShouldMigrate() -> Bool {
@@ -51,7 +70,6 @@ internal func apphudShouldMigrate() -> Bool {
 
 internal func apphudToUserDefaultsCache(dictionary: [String: String], key: String) {
     UserDefaults.standard.set(dictionary, forKey: key)
-    UserDefaults.standard.synchronize()
 }
 
 internal func apphudFromUserDefaultsCache(key: String) -> [String: String]? {

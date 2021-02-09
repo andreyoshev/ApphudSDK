@@ -10,7 +10,7 @@ import UIKit
 import StoreKit
 import UserNotifications
 
-internal let apphud_sdk_version = "0.18.7"
+internal let apphud_sdk_version = "1.0.5"
 
 public typealias ApphudEligibilityCallback = (([String: Bool]) -> Void)
 public typealias ApphudBoolCallback = ((Bool) -> Void)
@@ -61,6 +61,14 @@ public typealias ApphudBoolCallback = ((Bool) -> Void)
      You must return a callback block which will be called when a payment is finished. If you don't implement this method or return `nil` then a payment will not start; you can also save the product and return `nil` to initiate a payment later by yourself. Read Apple documentation for details: https://developer.apple.com/documentation/storekit/in-app_purchase/promoting_in-app_purchases
      */
     @objc optional func apphudShouldStartAppStoreDirectPurchase(_ product: SKProduct) -> ((ApphudPurchaseResult) -> Void)?
+    
+    /**
+        Optional. Specify a list of product identifiers to fetch from the App Store.
+        If you don't implement this method, then product identifiers will be fetched from Apphud servers.
+     
+        Implementing this delegate method gives you more reliabality on fetching products and a little more speed on loading due to skipping Apphud request, but also gives less flexibility because you have to hardcode product identifiers this way.
+     */
+    @objc optional func apphudProductIdentifiers() -> [String]
 }
 
 @objc public protocol ApphudUIDelegate {
@@ -285,17 +293,43 @@ final public class Apphud: NSObject {
     @objc public static func purchase(_ product: SKProduct, callback: ((ApphudPurchaseResult) -> Void)?) {
         ApphudInternal.shared.purchase(product: product, callback: callback)
     }
+    
+    /**
+     Purchases product and automatically submits App Store Receipt to Apphud.
+     
+     __Note__:  You are not required to purchase product using Apphud SDK methods. You can purchase subscription or any in-app purchase using your own code. App Store receipt will be sent to Apphud anyway.
+     
+     - parameter productId: Required. Identifier of the product that user wants to purchase.
+     - parameter callback: Optional. Returns `ApphudPurchaseResult` object.
+     */
+    @objc(purchaseById:callback:)
+    public static func purchase(_ productId: String, callback: ((ApphudPurchaseResult) -> Void)?) {
+        ApphudInternal.shared.purchase(productId: productId, callback: callback)
+    }
 
     /**
     Purchases product and automatically submits App Store Receipt to Apphud. This method doesn't wait until Apphud validates receipt from Apple and immediately returns transaction object. This method may be useful if you don't care about receipt validation in callback. 
     
-     __Note__:  You are not required to purchase product using Apphud SDK methods. You can purchase subscription or any in-app purchase using your own code. App Store receipt will be sent to Apphud anyway.
+     __Note__: When using this method properties `subscription` and `nonRenewingPurchase` in `ApphudPurchaseResult` will always be `nil` !
      
     - parameter product: Required. This is an `SKProduct` object that user wants to purchase.
-    - parameter callback: Optional. Returns optional `SKPaymentTransaction` object and an optional error.
+    - parameter callback: Optional. Returns `ApphudPurchaseResult` object.
     */
-    @objc public static func purchaseWithoutValidation(_ product: SKProduct, callback: ((SKPaymentTransaction, Error?) -> Void)?) {
+    @objc public static func purchaseWithoutValidation(_ product: SKProduct, callback: ((ApphudPurchaseResult) -> Void)?) {
         ApphudInternal.shared.purchaseWithoutValidation(product: product, callback: callback)
+    }
+    
+    /**
+    Purchases product and automatically submits App Store Receipt to Apphud. This method doesn't wait until Apphud validates receipt from Apple and immediately returns transaction object. This method may be useful if you don't care about receipt validation in callback.
+    
+     __Note__: When using this method properties `subscription` and `nonRenewingPurchase` in `ApphudPurchaseResult` will always be `nil` !
+     
+    - parameter productId: Required. Identifier of the product that user wants to purchase.
+    - parameter callback: Optional. Returns `ApphudPurchaseResult` object.
+    */
+    @objc(purchaseWithoutValidationById:callback:)
+    public static func purchaseWithoutValidation(_ productId: String, callback: ((ApphudPurchaseResult) -> Void)?) {
+        ApphudInternal.shared.purchaseWithoutValidation(productId: productId, callback: callback)
     }
 
     /**
@@ -395,6 +429,13 @@ final public class Apphud: NSObject {
                 callback(subscriptions, purchases, error)
             }
         }
+    }
+    
+    /**
+     Fetches raw receipt info in a wrapped `ApphudReceipt` model class. This might be useful to get `original_application_version` value.
+     */
+    @objc public static func fetchRawReceiptInfo(_ completion: @escaping (ApphudReceipt?) -> Void) {
+        ApphudReceipt.getRawReceipt(completion: completion)
     }
 
     // MARK: - User Properties
@@ -501,12 +542,14 @@ final public class Apphud: NSObject {
     /**
      Submit Advertising Identifier (IDFA) to Apphud. This is used to properly match user with attribution platforms (AppsFlyer, Facebook, etc.)
      */
+    /*
     @objc public static func setAdvertisingIdentifier(_ idfa: String) {
         /*
          Temporarily disabled. IDFA is now being collected automatically again, until the next year. You can still disable automatic collection with the `disableIDFACollection` method.
          */
 //        ApphudInternal.shared.advertisingIdentifier = idfa
     }
+ */
 
     /**
      Opt out of IDFA collection. Currently we collect IDFA to match users between Apphud and attribution platforms (AppsFlyer, Branch). If you don't use and not planning to use such services, you can call this method.

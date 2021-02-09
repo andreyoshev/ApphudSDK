@@ -37,6 +37,13 @@ public class ApphudHttpClient {
 
     internal var apiKey: String = ""
 
+    internal var canRetry: Bool {
+        !invalidAPiKey && !unauthorized
+    }
+    
+    private var invalidAPiKey: Bool = false
+    private var unauthorized: Bool = false
+    
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
@@ -179,20 +186,26 @@ public class ApphudHttpClient {
                     let code = httpResponse.statusCode
                     if code >= 200 && code < 300 {
 
-                        if let dictionary = dictionary,
-                            let json = try? JSONSerialization.data(withJSONObject: dictionary, options: .prettyPrinted),
-                            let string = String(data: json, encoding: .utf8) {
-
-                            if ApphudUtils.shared.logLevel == .all {
+                        if let dictionary = dictionary {
+                            if ApphudUtils.shared.logLevel == .all,
+                               let json = try? JSONSerialization.data(withJSONObject: dictionary, options: .prettyPrinted),
+                               let string = String(data: json, encoding: .utf8) {
                                 apphudLog("Request \(method) \(request.url?.absoluteString ?? "") success with response: \n\(string)", logLevel: .all)
                             } else {
                                 apphudLog("Request \(method) \(request.url?.absoluteString ?? "") success")
                             }
-
                         }
 
                         callback?(true, dictionary, nil, code)
                         return
+                    }
+                    
+                    if code == 401 {
+                        self.invalidAPiKey = true
+                        apphudLog("Unable to perform API requests, because your API Key is invalid.", forceDisplay: true)
+                    } else if code == 403 {
+                        self.unauthorized = true
+                        apphudLog("Unable to perform API requests, because your account has been suspended.", forceDisplay: true)
                     }
 
                     if ApphudUtils.shared.logLevel == .all {

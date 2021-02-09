@@ -12,24 +12,35 @@ import StoreKit
 extension ApphudInternal {
 
     @objc internal func continueToFetchProducts() {
-        self.getProducts(callback: { (productsGroupsMap) in
-            // perform even if productsGroupsMap is nil or empty
-            self.performAllProductGroupsFetchedCallbacks()
+        if let productIDs = delegate?.apphudProductIdentifiers?(), productIDs.count > 0 {
+            var map = [String: String]()
+            productIDs.forEach { id in map[id] = "Untitled" }
+            continueWithProductsMap(map)
+        } else {
+            getProducts { map in  self.continueWithProductsMap(map) }
+        }
+    }
+    
+    fileprivate func continueWithProductsMap(_ productsGroupsMap: [String: String]?) {
+        // perform even if productsGroupsMap is nil or empty
+        self.performAllProductGroupsFetchedCallbacks()
 
-            if productsGroupsMap?.keys.count ?? 0 > 0 {
-                self.productsGroupsMap = productsGroupsMap
-                apphudToUserDefaultsCache(dictionary: self.productsGroupsMap!, key: "productsGroupsMap")
-            }
+        if productsGroupsMap?.keys.count ?? 0 > 0 {
+            self.productsGroupsMap = productsGroupsMap
+            apphudToUserDefaultsCache(dictionary: self.productsGroupsMap!, key: "productsGroupsMap")
+        }
 
-            if self.productsGroupsMap?.keys.count ?? 0 > 0 {
-                self.continueToFetchStoreKitProducts()
-            } else {
-                self.scheduleProductsFetchRetry()
-            }
-        })
+        if self.productsGroupsMap?.keys.count ?? 0 > 0 {
+            self.continueToFetchStoreKitProducts()
+        } else {
+            self.scheduleProductsFetchRetry()
+        }
     }
 
     fileprivate func scheduleProductsFetchRetry() {
+        guard httpClient.canRetry else {
+            return
+        }
         guard productsFetchRetriesCount < maxNumberOfProductsFetchRetries else {
             apphudLog("Reached max number of product fetch retries \(productsFetchRetriesCount). Exiting..", forceDisplay: true)
             return
@@ -46,22 +57,18 @@ extension ApphudInternal {
             return
         }
         ApphudStoreKitWrapper.shared.fetchProducts(identifiers: Set(self.productsGroupsMap!.keys)) { _ in
-            self.continueToUpdateProductPricesIfNeeded()
+            self.continueToUpdateCurrencyIfNeeded()
         }
     }
 
-    private func continueToUpdateProductPricesIfNeeded() {
-        guard !didSubmitProductPrices else {return}
-        let products = ApphudStoreKitWrapper.shared.products
-        if products.count > 0 {
-            self.updateUserCurrencyIfNeeded(priceLocale: products.first?.priceLocale)
-            self.continueToUpdateProductsPrices(products: products)
-            didSubmitProductPrices = true
+    private func continueToUpdateCurrencyIfNeeded() {
+        guard let locale = ApphudStoreKitWrapper.shared.products.first?.priceLocale else {
+            return
         }
-    }
-
-    private func continueToUpdateProductsPrices(products: [SKProduct]) {
-        self.submitProducts(products: products) { (_, _, _, _) in }
+        
+        self.performWhenUserRegistered {
+            self.updateUserCurrencyIfNeeded(priceLocale: locale)
+        }
     }
 
     internal func refreshStoreKitProductsWithCallback(callback: (([SKProduct]) -> Void)?) {
@@ -95,17 +102,5 @@ extension ApphudInternal {
                 callback(nil)
             }
         }
-    }
-
-    private func submitProducts(products: [SKProduct], callback: ApphudHTTPResponseCallback?) {
-        var array = [[String: Any]]()
-        for product in products {
-            let productParams: [String: Any] = product.apphudSubmittableParameters()
-            array.append(productParams)
-        }
-
-        let params = ["products": array] as [String: Any]
-
-        httpClient.startRequest(path: "products", params: params, method: .put, callback: callback)
     }
 }
